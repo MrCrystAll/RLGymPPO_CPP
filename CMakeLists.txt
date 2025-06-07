@@ -20,7 +20,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(RLGymSim_CPP)
 
-set(Torch_DIR "../RandomProjects/deps/libtorch/share/cmake/Torch")
 include_directories("${PROJECT_SOURCE_DIR}/src/")
 
 # Make sure CMake finds libtorch if its in this directory
