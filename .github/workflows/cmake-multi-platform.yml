@@ -1,0 +1,144 @@
+# This starter workflow is for a CMake project running on multiple platforms. There is a different starter workflow if you just want a single platform.
+# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-single-platform.yml
+name: CMake on multiple platforms
+
+on:
+  push:
+    branches: [ "master" ]
+    tags: [ "v*.*.*" ] # This will trigger on tags like v1.0.0, v2.1.0, etc.
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.config.os }}
+
+    strategy:
+      # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
+      fail-fast: false
+
+      # Set up a matrix to run the following 3 configurations:
+      # 1. <Windows, Release, latest MSVC compiler toolchain on the default runner image, default generator>
+      # 2. <Linux, Release, latest GCC compiler toolchain on the default runner image, default generator>
+      # 3. <Linux, Release, latest Clang compiler toolchain on the default runner image, default generator>
+      #
+      matrix:
+        config:
+          - { name: "Windows MSVC", os: windows-latest, cc: "cl", cxx: "cl", artifact_suffix: "windows", extension_suffix: ".dll", torch_url: "https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-2.7.1%2Bcpu.zip" }
+          - { name: "Ubuntu gcc", os: ubuntu-latest, cc: "gcc", cxx: "g++", artifact_suffix: "linux", extension_suffix: ".so", torch_url: "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.7.1%2Bcpu.zip" }
+          
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Set up SSH for private repo access
+      shell: bash
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.VOID_STATUS_PRI_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+    - name: Configure git to use SSH
+      run: |
+        git config --global url."git@github.com:".insteadOf "https://github.com/"
+
+    - name: Cache LibTorch
+      id: cache-libtorch
+      uses: actions/cache@v4
+      with:
+        path: libtorch
+        key: ${{ runner.os }}-libtorch-cpu-2.7.1
+        restore-keys: |
+          ${{ runner.os }}-libtorch-cpu-
+
+    - name: Set reusable strings
+      # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
+      id: strings
+      shell: bash
+      run: |
+        echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+    - name: Setup Ninja
+      uses: ashutoshvarma/setup-ninja@master
+      with:
+        version: 1.12.1
+
+    - name: Build with CMake
+      uses: ashutoshvarma/action-cmake-build@master
+      env:
+        CI: true
+      with:
+        build-dir: ${{ steps.strings.outputs.build-output-dir }}
+        cc: ${{ matrix.config.cc }}
+        cxx: ${{ matrix.config.cxx }}
+        configure-options: -G Ninja
+        build-type: Release
+        run-test: true
+
+    - name: Package library (Windows)
+      if: matrix.config.os == 'windows-latest'
+      shell: pwsh
+      working-directory: ${{ steps.strings.outputs.build-output-dir }}
+      run: |
+        Compress-Archive -Path RLGymPPO_CPP.dll -DestinationPath "../RLGymPPO_CPP-windows.zip"
+      
+    - name: Package library (Linux/macOS)
+      if: matrix.config.os != 'windows-latest'
+      shell: bash
+      working-directory: ${{ steps.strings.outputs.build-output-dir }}
+      run: |
+        # Example: Tar and gzip your built library files. Adjust as needed.
+        # This assumes your library is located at libmy_library.so or libmy_library.a
+        # You'll need to modify this to match your actual build output structure.
+        tar -czvf "../RLGymPPO_CPP-${{ matrix.config.artifact_suffix }}.tar.gz" ./libRLGymPPO_CPP${{matrix.config.extension_suffix}}
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.config.name }}-library
+        path: |
+          ${{ github.workspace }}/RLGymPPO_CPP-windows.zip
+          ${{ github.workspace }}/RLGymPPO_CPP-linux.tar.gz
+          ${{ github.workspace }}/RLGymPPO_CPP-macos.tar.gz
+        retention-days: 1 # You can adjust this as needed
+
+  release:
+    needs: build # This job depends on the successful completion of the build job
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+
+    steps:
+
+    - name: Checkout repository
+      uses: actions/checkout@v4 # Needed to access CHANGELOG.md
+    
+    - name: Download all build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: List downloaded artifacts (for debugging)
+      run: ls -R artifacts
+
+    - name: Extract release notes from CHANGELOG.md
+      id: extract_release_notes # Give this step an ID to reference its outputs
+      uses: ffurrer2/extract-release-notes@v2
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.ref_name }} # Ensures the tag matches the release
+        name: ${{ github.ref_name }} # Sets the release title to the tag name
+        body: ${{ steps.extract_release_notes.outputs.release_notes }} # Use the extracted changelog content
+        files: |
+          artifacts/*/RLGymPPO_CPP-windows.zip
+          artifacts/*/RLGymPPO_CPP-linux.tar.gz
+          artifacts/*/RLGymPPO_CPP-macos.tar.gz
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
