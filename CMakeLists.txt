@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required (VERSION 3.21)
 
 project("RLGymPPO_CPP" VERSION 1.0.0)
 
@@ -6,13 +6,9 @@ include(FetchContent)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# Pybind11
-FetchContent_Declare(
-    pybind11
-    GIT_REPOSITORY https://github.com/pybind/pybind11
-    GIT_TAG v2.13.6
-)
-FetchContent_MakeAvailable(pybind11)
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES 75)
+endif()
 
 # RLGymSim_CPP
 FetchContent_Declare(
@@ -71,7 +67,18 @@ message("PYTHON_LIBRARIES: ${Python3_LIBRARIES}")
 message("PYTHON_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
 message("Python_RUNTIME_LIBRARY_DIRS: ${Python3_RUNTIME_LIBRARY_DIRS}")
 message("Python_EXECUTABLE: ${Python3_EXECUTABLE}")
+
+set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
+
 add_definitions(-DPY_EXEC_PATH="${Python3_EXECUTABLE}") # Give C++ access to the executable path
+
+# Pybind11
+FetchContent_Declare(
+    pybind11
+    GIT_REPOSITORY https://github.com/pybind/pybind11
+    GIT_TAG v2.13.6
+)
+FetchContent_MakeAvailable(pybind11)
 
 # Include pybind11
 target_link_libraries(RLGymPPO_CPP PUBLIC pybind11::embed)
