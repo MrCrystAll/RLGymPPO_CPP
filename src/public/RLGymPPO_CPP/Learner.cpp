@@ -1,5 +1,4 @@
 #include "Learner.h"
-#include "Learner.h"
 
 #include "../../private/RLGymPPO_CPP/Util/SkillTracker.h"
 
