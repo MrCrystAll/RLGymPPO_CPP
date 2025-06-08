@@ -4,6 +4,8 @@ project("RLGymPPO_CPP")
 
 include(FetchContent)
 
+set(Torch_DIR "../RandomProjects/deps/libtorch/share/cmake/Torch")
+
 # Pybind11
 FetchContent_Declare(
     pybind11

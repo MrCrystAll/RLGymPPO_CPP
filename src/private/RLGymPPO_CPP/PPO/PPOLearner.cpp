@@ -65,22 +65,6 @@ RLGPC::PPOLearner::PPOLearner(int obsSpaceSize, int actSpaceSize, PPOLearnerConf
 }
 
 void RLGPC::PPOLearner::Learn(ExperienceBuffer* expBuffer, Report& report) {
-	
-	bool autocast = config.autocastLearn;
-
-	if (autocast) {
-#ifndef RG_CUDA_SUPPORT
-		RG_ERR_CLOSE("Autocast not supported on non-CUDA!")
-#endif
-	}
-
-	static amp::GradScaler* gradScaler = NULL;
-#ifdef RG_CUDA_SUPPORT
-	if (autocast && !gradScaler) {
-		RG_LOG("Creating grad scaler...");
-		gradScaler = new amp::GradScaler();
-	}
-#endif
 
 	int
 		numIterations = 0,
@@ -135,7 +119,6 @@ void RLGPC::PPOLearner::Learn(ExperienceBuffer* expBuffer, Report& report) {
 				auto targetValues = batchTargetValues.slice(0, start, stop).to(device, true, true);
 
 				Timer timer = {};
-				if (autocast) RG_AUTOCAST_ON();
 				auto vals = valueNet->Forward(obs); // 11%
 				threadUpdateMutex.lock();
 				report.Accum("PPO Value Estimate Time", timer.Elapsed());
@@ -178,8 +161,6 @@ void RLGPC::PPOLearner::Learn(ExperienceBuffer* expBuffer, Report& report) {
 					valueLoss = valueLossFn(vals, targetValues) * batchSizeRatio;
 				}
 
-				if (autocast) RG_AUTOCAST_OFF();
-
 				float kl;
 				if (trainPolicy) {
 					// Compute KL divergence & clip fraction using SB3 method for reporting
@@ -202,17 +183,10 @@ void RLGPC::PPOLearner::Learn(ExperienceBuffer* expBuffer, Report& report) {
 				// NOTE: These gradient calls are a substantial portion of learn time
 				//	From my testing, they are around 61% of learn time
 				//	Results will probably vary heavily depending on model size and GPU strength
-				if (autocast) {
-					if (trainPolicy)
-						gradScaler->scale(ppoLoss).backward();
-					if (trainCritic)
-						gradScaler->scale(valueLoss).backward();
-				} else {
-					if (trainPolicy)
-						ppoLoss.backward(); // 29%
-					if (trainCritic)
-						valueLoss.backward(); // 24%
-				}
+				if (trainPolicy)
+					ppoLoss.backward(); // 29%
+				if (trainCritic)
+					valueLoss.backward(); // 24%
 
 				threadUpdateMutex.lock();
 				{
@@ -275,26 +249,15 @@ void RLGPC::PPOLearner::Learn(ExperienceBuffer* expBuffer, Report& report) {
 			if (trainCritic)
 				nn::utils::clip_grad_norm_(valueNet->parameters(), 0.5f);
 			
-
-			if (autocast) {
-				if (trainPolicy)
-					gradScaler->step(*policyOptimizer);
-				if (trainCritic)
-					gradScaler->step(*valueOptimizer);
-			} else {
-				if (trainPolicy)
-					policyOptimizer->step();
-				if (trainCritic)
-					valueOptimizer->step();
-			}
+			if (trainPolicy)
+				policyOptimizer->step();
+			if (trainCritic)
+				valueOptimizer->step();
 
 			if (policyHalf)
 				_CopyModelParamsHalf(policy, policyHalf);
 			if (valueNetHalf)
 				_CopyModelParamsHalf(valueNet, valueNetHalf);
-			
-			if (autocast)
-				gradScaler->update();
 			numIterations += 1;
 		}
 	}
