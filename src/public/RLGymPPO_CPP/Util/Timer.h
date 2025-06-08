@@ -17,7 +17,7 @@ namespace RLGPC {
 		}
 
 		void Reset() {
-			startTime = std::chrono::high_resolution_clock::now();
+			startTime = std::chrono::steady_clock::now();
 		}
 	};
 }
