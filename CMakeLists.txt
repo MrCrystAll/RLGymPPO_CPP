@@ -61,7 +61,7 @@ target_link_libraries(RLGymPPO_CPP PUBLIC RLGymSim_CPP)
 
 # Include python
 find_package(Python3 COMPONENTS Interpreter Development)
-include_directories(${PYython3_INCLUDE_DIRS})
+include_directories(${Python3_INCLUDE_DIRS})
 target_link_libraries(RLGymPPO_CPP PUBLIC ${Python3_LIBRARIES})
 message("Found Python:")
 message("PYTHON_LIBRARIES: ${Python3_LIBRARIES}")
