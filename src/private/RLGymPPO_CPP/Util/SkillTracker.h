@@ -1,12 +1,12 @@
 #pragma once
-#include "../FrameworkTorch.h"
-#include "../../../public/RLGymPPO_CPP/Util/SkillTrackerConfig.h"
-#include "../../../public/RLGymPPO_CPP/Util/RenderSender.h"
-#include "../PPO/DiscretePolicy.h"
+#include <RLGymPPO_CPP/FrameworkTorch.h>
+#include <RLGymPPO_CPP/Util/SkillTrackerConfig.h>
+#include <RLGymPPO_CPP/Util/RenderSender.h>
+#include <RLGymPPO_CPP/PPO/DiscretePolicy.h>
 
 #include "../../libsrc/json/nlohmann/json.hpp"
 
-#include <public/RLGymPPO_CPP/Threading/GameInst.h>
+#include <RLGymPPO_CPP/Threading/GameInst.h>
 
 namespace RLGPC {
 	struct SkillTracker {

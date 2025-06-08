@@ -1,7 +1,7 @@
 #pragma once
-#include "../Lists.h"
-#include "../Util/AvgTracker.h"
-#include "../Util/Report.h"
+#include <RLGymPPO_CPP/Lists.h>
+#include <RLGymPPO_CPP/Util/AvgTracker.h>
+#include <RLGymPPO_CPP/Util/Report.h>
 
 namespace RLGPC {
 	typedef std::function<void(class GameInst*, const RLGSC::Gym::StepResult&, Report&)> StepCallback;

@@ -1,7 +1,7 @@
 #pragma once
-#include "../Lists.h"
-#include "../Threading/GameInst.h"
-#include "../LearnerConfig.h"
+#include <RLGymPPO_CPP/Lists.h>
+#include <RLGymPPO_CPP/Threading/GameInst.h>
+#include <RLGymPPO_CPP/LearnerConfig.h>
 
 namespace RLGPC {
 	class RG_IMEXPORT InferUnit {

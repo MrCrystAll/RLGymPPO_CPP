@@ -1,6 +1,6 @@
 #pragma once
-#include "Lists.h"
-#include "PPO/PPOLearnerConfig.h"
+#include <RLGymPPO_CPP/Lists.h>
+#include <RLGymPPO_CPP/PPO/PPOLearnerConfig.h>
 #include <RLGymPPO_CPP/Util/SkillTrackerConfig.h>
 
 namespace RLGPC {

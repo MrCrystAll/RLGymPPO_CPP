@@ -1,6 +1,6 @@
 #pragma once
-#include "ThreadAgent.h"
-#include "../PPO/ExperienceBuffer.h"
+#include <RLGymPPO_CPP/Threading/ThreadAgent.h>
+#include <RLGymPPO_CPP/PPO/ExperienceBuffer.h>
 #include <RLGymPPO_CPP/Util/Report.h>
 #include <RLGymPPO_CPP/Util/WelfordRunningStat.h>
 #include <RLGymPPO_CPP/Util/Timer.h>

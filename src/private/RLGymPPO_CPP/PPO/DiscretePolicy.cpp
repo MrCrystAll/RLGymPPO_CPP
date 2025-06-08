@@ -2,7 +2,7 @@
 
 #include <torch/nn/modules/linear.h>
 #include <torch/nn/modules/activation.h>
-#include <private/RLGymPPO_CPP/FrameworkTorch.h>
+#include <RLGymPPO_CPP/FrameworkTorch.h>
 
 RLGPC::DiscretePolicy::DiscretePolicy(int inputAmount, int actionAmount, const IList& layerSizes, torch::Device device, float temperature) :
 	device(device), inputAmount(inputAmount), actionAmount(actionAmount), layerSizes(layerSizes), temperature(temperature) {

@@ -1,10 +1,10 @@
 #pragma once
 
-#include "Threading/GameInst.h"
-#include "Util/WelfordRunningStat.h"
-#include "Util/MetricSender.h"
-#include "Util/RenderSender.h"
-#include "LearnerConfig.h"
+#include <RLGymPPO_CPP/Threading/GameInst.h>
+#include <RLGymPPO_CPP/Util/WelfordRunningStat.h>
+#include <RLGymPPO_CPP/Util/MetricSender.h>
+#include <RLGymPPO_CPP/Util/RenderSender.h>
+#include <RLGymPPO_CPP/LearnerConfig.h>
 
 namespace RLGPC {
 

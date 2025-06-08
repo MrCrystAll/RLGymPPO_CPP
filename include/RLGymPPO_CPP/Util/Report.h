@@ -1,5 +1,5 @@
 #pragma once
-#include "../Framework.h"
+#include <RLGymPPO_CPP/Framework.h>
 
 namespace RLGPC {
 	struct Report {

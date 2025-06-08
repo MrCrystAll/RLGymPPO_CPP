@@ -1,6 +1,6 @@
-#include "RenderSender.h"
+#include <RLGymPPO_CPP/Util/RenderSender.h>
 
-#include "../../libsrc/json/nlohmann/json.hpp"
+#include <json/nlohmann/json.hpp>
 
 namespace py = pybind11;
 using namespace nlohmann;

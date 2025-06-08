@@ -1,15 +1,15 @@
 #pragma once
-#include "DiscretePolicy.h"
-#include "ValueEstimator.h"
-#include "ExperienceBuffer.h"
+#include <RLGymPPO_CPP/PPO/DiscretePolicy.h>
+#include <RLGymPPO_CPP/PPO/ValueEstimator.h>
+#include <RLGymPPO_CPP/PPO/ExperienceBuffer.h>
 #include <RLGymPPO_CPP/Util/Report.h>
 #include <RLGymPPO_CPP/Util/Timer.h>
 #include <RLGymPPO_CPP/PPO/PPOLearnerConfig.h>
 
 #include <torch/optim/adam.h>
 #include <torch/nn/modules/loss.h>
-#include "../Util/GradNoiseTracker.h"
-#include "../Util/ThreadPool.h"
+#include <RLGymPPO_CPP/Util/GradNoiseTracker.h>
+#include <RLGymPPO_CPP/Util/ThreadPool.h>
 
 namespace RLGPC {
 	// https://github.com/AechPro/rlgym-ppo/blob/main/rlgym_ppo/ppo/ppo_learner.py

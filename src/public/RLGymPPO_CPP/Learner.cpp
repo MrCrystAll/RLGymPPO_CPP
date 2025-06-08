@@ -1,13 +1,13 @@
-#include "Learner.h"
+#include <RLGymPPO_CPP/Learner.h>
 
-#include "../../private/RLGymPPO_CPP/Util/SkillTracker.h"
+#include <RLGymPPO_CPP/Util/SkillTracker.h>
 
 #include <RLGymPPO_CPP/PPO/PPOLearner.h>
 #include <RLGymPPO_CPP/PPO/ExperienceBuffer.h>
 #include <RLGymPPO_CPP/Threading/ThreadAgentManager.h>
 
 #include <torch/cuda.h>
-#include "../libsrc/json/nlohmann/json.hpp"
+#include <json/nlohmann/json.hpp>
 #include <pybind11/embed.h>
 
 #ifdef RG_CUDA_SUPPORT

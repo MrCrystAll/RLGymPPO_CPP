@@ -1,6 +1,6 @@
 #pragma once
 #include <RLGymPPO_CPP/Lists.h>
-#include "../FrameworkTorch.h"
+#include <RLGymPPO_CPP/FrameworkTorch.h>
 
 namespace RLGPC {
 

@@ -1,5 +1,5 @@
 #pragma once
-#include "../Util/TorchFuncs.h"
+#include <RLGymPPO_CPP/Util/TorchFuncs.h>
 
 namespace RLGPC {
 	struct TrajectoryTensors {

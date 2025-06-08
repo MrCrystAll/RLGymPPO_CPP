@@ -1,6 +1,6 @@
-#include "PPOLearner.h"
+#include <RLGymPPO_CPP/PPO/PPOLearner.h>
 
-#include "../Util/TorchFuncs.h"
+#include <RLGymPPO_CPP/Util/TorchFuncs.h>
 
 #include <torch/nn/utils/convert_parameters.h>
 #include <torch/nn/utils/clip_grad.h>

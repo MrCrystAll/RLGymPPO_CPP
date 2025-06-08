@@ -1,6 +1,6 @@
-#include "ThreadAgent.h"
+#include <RLGymPPO_CPP/Threading/ThreadAgent.h>
 
-#include "ThreadAgentManager.h"
+#include <RLGymPPO_CPP/Threading/ThreadAgentManager.h>
 #include <RLGymPPO_CPP/Util/Timer.h>
 
 using namespace RLGPC;

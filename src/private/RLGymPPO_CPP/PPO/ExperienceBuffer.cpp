@@ -1,6 +1,5 @@
-#include "ExperienceBuffer.h"
-
-#include "../Util/TorchFuncs.h"
+#include <RLGymPPO_CPP/PPO/ExperienceBuffer.h>
+#include <RLGymPPO_CPP/Util/TorchFuncs.h>
 
 using namespace torch;
 

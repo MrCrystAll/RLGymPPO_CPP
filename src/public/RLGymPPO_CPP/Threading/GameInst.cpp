@@ -1,4 +1,4 @@
-#include "GameInst.h"
+#include <RLGymPPO_CPP/Threading/GameInst.h>
 
 void RLGPC::GameInst::Start() {
 	curObs = gym->Reset();

@@ -1,5 +1,5 @@
 #pragma once
-#include "../FrameworkTorch.h"
+#include <RLGymPPO_CPP/FrameworkTorch.h>
 #include <torch/nn/modules/container/sequential.h>
 
 namespace RLGPC {

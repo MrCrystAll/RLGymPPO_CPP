@@ -6,6 +6,7 @@ include(FetchContent)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+set(Torch_DIR "../RandomProjects/deps/libtorch/share/cmake/Torch")
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
     set(CMAKE_CUDA_ARCHITECTURES 75)
 endif()
@@ -33,12 +34,12 @@ find_package(Torch REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 # Add all headers and code files
-file(GLOB_RECURSE FILES_SRC "src/*.cpp" "src/*.h" "src/*.hpp" "libsrc/*.cpp" "libsrc/.h" "libsrc/.hpp")
+file(GLOB_RECURSE FILES_SRC "src/*.cpp")
 
 add_library(RLGymPPO_CPP SHARED ${FILES_SRC})
 target_compile_definitions(RLGymPPO_CPP PRIVATE -DWITHIN_RLGPC)
-target_include_directories(RLGymPPO_CPP PUBLIC "src/public" ${CMAKE_CURRENT_BINARY_DIR})
-target_include_directories(RLGymPPO_CPP PRIVATE "src/private")
+target_include_directories(RLGymPPO_CPP PUBLIC "include" ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(RLGymPPO_CPP PRIVATE "src/private" "libsrc")
 
 # Include libtorch
 target_link_libraries(RLGymPPO_CPP PRIVATE "${TORCH_LIBRARIES}")
@@ -84,7 +85,7 @@ FetchContent_MakeAvailable(pybind11)
 target_link_libraries(RLGymPPO_CPP PUBLIC pybind11::embed)
 
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/public/RLGymPPO_CPP/config.h.in"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/RLGymPPO_CPP/config.h.in"
     "${CMAKE_CURRENT_BINARY_DIR}/RLGymPPO_CPP/config.h"
     @ONLY
 )

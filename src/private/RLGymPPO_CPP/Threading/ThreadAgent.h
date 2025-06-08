@@ -1,7 +1,7 @@
 #pragma once
-#include "../PPO/DiscretePolicy.h"
+#include <RLGymPPO_CPP/PPO/DiscretePolicy.h>
 #include <RLGymPPO_CPP/Threading/GameInst.h>
-#include "GameTrajectory.h"
+#include <RLGymPPO_CPP/Threading/GameTrajectory.h>
 
 namespace RLGPC {
 	class ThreadAgent {

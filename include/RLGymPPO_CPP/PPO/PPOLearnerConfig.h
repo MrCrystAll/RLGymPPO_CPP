@@ -1,5 +1,5 @@
 #pragma once
-#include "../Lists.h"
+#include <RLGymPPO_CPP/Lists.h>
 
 namespace RLGPC {
 	// https://github.com/AechPro/rlgym-ppo/blob/main/rlgym_ppo/ppo/ppo_learner.py

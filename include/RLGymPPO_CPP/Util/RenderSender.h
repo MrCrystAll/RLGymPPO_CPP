@@ -1,5 +1,5 @@
 #pragma once
-#include "Report.h"
+#include <RLGymPPO_CPP/Util/Report.h>
 #include <pybind11/pybind11.h>
 #include <RLGymSim_CPP/Utils/Gamestates/GameState.h>
 #include <RLGymSim_CPP/Utils/BasicTypes/Action.h>

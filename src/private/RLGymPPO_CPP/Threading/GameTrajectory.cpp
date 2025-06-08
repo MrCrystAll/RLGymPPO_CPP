@@ -1,4 +1,4 @@
-#include "GameTrajectory.h"
+#include <RLGymPPO_CPP/Threading/GameTrajectory.h>
 
 namespace RLGPC {
 
