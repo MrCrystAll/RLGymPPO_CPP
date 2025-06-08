@@ -68,18 +68,6 @@ jobs:
 
     - uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Set up SSH for private repo access
-      shell: bash
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.VOID_STATUS_PRI_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-    - name: Configure git to use SSH
-      run: |
-        git config --global url."git@github.com:".insteadOf "https://github.com/"
-
     - name: Restore LibTorch cache
       uses: actions/cache@v4
       with:
