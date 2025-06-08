@@ -1,0 +1,3 @@
+#pragma once
+
+#define RLGYM_PPO_CPP_VERSION "@PROJECT_VERSION@"

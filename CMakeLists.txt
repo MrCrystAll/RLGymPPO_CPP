@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.8)
 
-project("RLGymPPO_CPP")
+project("RLGymPPO_CPP" VERSION 1.0.0)
 
 include(FetchContent)
 
@@ -41,7 +41,7 @@ file(GLOB_RECURSE FILES_SRC "src/*.cpp" "src/*.h" "src/*.hpp" "libsrc/*.cpp" "li
 
 add_library(RLGymPPO_CPP SHARED ${FILES_SRC})
 target_compile_definitions(RLGymPPO_CPP PRIVATE -DWITHIN_RLGPC)
-target_include_directories(RLGymPPO_CPP PUBLIC "src/public")
+target_include_directories(RLGymPPO_CPP PUBLIC "src/public" ${CMAKE_CURRENT_BINARY_DIR})
 target_include_directories(RLGymPPO_CPP PRIVATE "src/private")
 
 # Include libtorch
@@ -75,6 +75,12 @@ add_definitions(-DPY_EXEC_PATH="${Python3_EXECUTABLE}") # Give C++ access to the
 
 # Include pybind11
 target_link_libraries(RLGymPPO_CPP PUBLIC pybind11::embed)
+
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/public/RLGymPPO_CPP/config.h.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/RLGymPPO_CPP/config.h"
+    @ONLY
+)
 
 # MSVC fails to find python DLLs even through they are in my path. Good job MSVC. Well done.
 # This copies the the python DLLs to the output directory
