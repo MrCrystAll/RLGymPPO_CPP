@@ -87,9 +87,10 @@ void RLGPC::RenderSender::Send(const GameState& state, const ActionSet& actions)
 	j["actions"] = ActionSetToJSON(actions);
 	
 	std::string jStr = j.dump();
+	py::handle py_jStr = PyUnicode_DecodeUTF8(jStr.data(), jStr.length(), nullptr);
 
 	try {
-		pyMod.attr("render_state")(jStr);
+		pyMod.attr("render_state")(py_jStr);
 	} catch (std::exception& e) {
 		RG_ERR_CLOSE("RenderSender: Failed to send gamestate, exception: " << e.what());
 	}
