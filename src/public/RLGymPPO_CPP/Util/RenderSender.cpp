@@ -87,7 +87,6 @@ void RLGPC::RenderSender::Send(const GameState& state, const ActionSet& actions)
 	j["actions"] = ActionSetToJSON(actions);
 	
 	std::string jStr = j.dump();
-	py::handle py_jStr = PyUnicode_DecodeUTF8(jStr.data(), jStr.length(), nullptr);
 
 	try {
 		pyMod.attr("render_state")(py_jStr);

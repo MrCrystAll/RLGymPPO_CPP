@@ -60,7 +60,7 @@ target_link_libraries(RLGymPPO_CPP PUBLIC RLGymSim_CPP)
 #target_include_directories(RLGymPPO_CPP PRIVATE "${PROJECT_SOURCE_DIR}/libsrc/json")
 
 # Include python
-find_package(Python3 COMPONENTS Interpreter Development)
+find_package(Python3 3.7...<3.11 COMPONENTS Interpreter Development)
 include_directories(${Python3_INCLUDE_DIRS})
 target_link_libraries(RLGymPPO_CPP PUBLIC ${Python3_LIBRARIES})
 message("Found Python:")
