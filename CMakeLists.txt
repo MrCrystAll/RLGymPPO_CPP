@@ -11,13 +11,17 @@ if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
     set(CMAKE_CUDA_ARCHITECTURES 75)
 endif()
 
-# RLGymSim_CPP
-FetchContent_Declare(
-    RLGymSim_CPP
-    GIT_REPOSITORY https://github.com/MrCrystAll/RLGymSim_CPP
-    GIT_TAG v1.0.0
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+include(FetchFromGH)
+
+DOWNLOAD_GITHUB_RELEASE(
+    NAME RLGymSim_CPP
+    REPO MrCrystAll/RLGymSim_CPP
+    TAG v1.0.4
 )
-FetchContent_MakeAvailable(RLGymSim_CPP)
+
+find_package(RLGymSim_CPP REQUIRED)
 
 include_directories("${PROJECT_SOURCE_DIR}/src/")
 
@@ -38,11 +42,20 @@ file(GLOB_RECURSE FILES_SRC "src/*.cpp")
 
 add_library(RLGymPPO_CPP SHARED ${FILES_SRC})
 target_compile_definitions(RLGymPPO_CPP PRIVATE -DWITHIN_RLGPC)
-target_include_directories(RLGymPPO_CPP PUBLIC "include" ${CMAKE_CURRENT_BINARY_DIR})
-target_include_directories(RLGymPPO_CPP PRIVATE "src/private" "libsrc")
+
+
+target_include_directories(${PROJECT_NAME}
+		PUBLIC
+		$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+		$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libsrc>
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+		$<INSTALL_INTERFACE:include>
+        PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/private>
+)
 
 # Include libtorch
-target_link_libraries(RLGymPPO_CPP PRIVATE "${TORCH_LIBRARIES}")
+target_link_libraries(RLGymPPO_CPP PRIVATE "${TORCH_LIBRARIES}" RLGymSim_CPP::RLGymSim_CPP)
 
 if (TORCH_CUDA_LIBRARIES)
 	message("Enabling CUDA support...")
@@ -52,9 +65,6 @@ endif()
 # Set C++ version to 20
 set_target_properties(RLGymPPO_CPP PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(RLGymPPO_CPP PROPERTIES CXX_STANDARD 20)
-
-# Include RLGymSim_CPP
-target_link_libraries(RLGymPPO_CPP PUBLIC RLGymSim_CPP)
 
 # Include JSON
 #target_include_directories(RLGymPPO_CPP PRIVATE "${PROJECT_SOURCE_DIR}/libsrc/json")
@@ -110,10 +120,18 @@ configure_file("./python_scripts/render_receiver.py" "./python_scripts/render_re
 # This is also from https://pytorch.org/cppdocs/installing.html#minimal-example
 if (MSVC)
     file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
-	message("Adding TORCH_DLLS: ${TORCH_DLLS}")
+	message(STATUS "Adding TORCH_DLLS: ${TORCH_DLLS}")
     add_custom_command(TARGET RLGymPPO_CPP
                  POST_BUILD
                  COMMAND ${CMAKE_COMMAND} -E copy_if_different
                  ${TORCH_DLLS}
+                 $<TARGET_FILE_DIR:RLGymPPO_CPP>)
+
+    file(GLOB RLGymSim_CPP_DLLS "${RLGymSim_CPP_BIN_DIR}/*.dll")
+    message(STATUS "Adding RLGymSim_CPP_DLLS: ${RLGymSim_CPP_DLLS}")
+    add_custom_command(TARGET RLGymPPO_CPP
+                 POST_BUILD
+                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                 ${RLGymSim_CPP_DLLS}
                  $<TARGET_FILE_DIR:RLGymPPO_CPP>)
 endif (MSVC)
