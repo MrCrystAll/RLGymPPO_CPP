@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2025-06-24
+
+### Added
+
+- Integrate prebuilt RLGymSim\_CPP to reduce compilation time
+
 ## [1.0.1] - 2025-06-08
 
 ### Fixed

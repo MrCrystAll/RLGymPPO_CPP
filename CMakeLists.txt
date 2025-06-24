@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.21)
 
-project("RLGymPPO_CPP" VERSION 1.0.0)
+project("RLGymPPO_CPP" VERSION 1.0.2 LANGUAGES CXX)
 
 include(FetchContent)
 
@@ -19,7 +19,6 @@ DOWNLOAD_GITHUB_RELEASE(
     NAME RLGymSim_CPP
     REPO MrCrystAll/RLGymSim_CPP
     TAG v1.0.6
-    FORCE_DL TRUE
 )
 
 find_package(RLGymSim_CPP REQUIRED)
