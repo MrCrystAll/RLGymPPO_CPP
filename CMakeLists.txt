@@ -18,7 +18,8 @@ include(FetchFromGH)
 DOWNLOAD_GITHUB_RELEASE(
     NAME RLGymSim_CPP
     REPO MrCrystAll/RLGymSim_CPP
-    TAG v1.0.4
+    TAG v1.0.5
+    FORCE_DL TRUE
 )
 
 find_package(RLGymSim_CPP REQUIRED)
@@ -127,7 +128,12 @@ if (MSVC)
                  ${TORCH_DLLS}
                  $<TARGET_FILE_DIR:RLGymPPO_CPP>)
 
-    file(GLOB RLGymSim_CPP_DLLS "${RLGymSim_CPP_BIN_DIR}/*.dll")
+    if(MSVC)
+        file(GLOB RLGymSim_CPP_DLLS "${RLGymSim_CPP_BIN_DIR}/*.dll")
+    elseif(UNIX)
+        file(GLOB RLGymSim_CPP_DLLS "${RLGymSim_CPP_LIB_DIR}/*.so")
+    endif()
+
     message(STATUS "Adding RLGymSim_CPP_DLLS: ${RLGymSim_CPP_DLLS}")
     add_custom_command(TARGET RLGymPPO_CPP
                  POST_BUILD
