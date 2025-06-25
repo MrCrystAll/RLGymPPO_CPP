@@ -18,7 +18,7 @@ include(FetchFromGH)
 DOWNLOAD_GITHUB_RELEASE(
     NAME RLGymSim_CPP
     REPO MrCrystAll/RLGymSim_CPP
-    TAG v1.0.6
+    TAG v1.0.7
 )
 
 find_package(RLGymSim_CPP REQUIRED)
