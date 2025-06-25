@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.21)
 
-project("RLGymPPO_CPP" VERSION 1.0.3 LANGUAGES CXX)
+project("RLGymPPO_CPP" VERSION 1.0.4 LANGUAGES CXX)
 
 include(FetchContent)
 
