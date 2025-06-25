@@ -46,12 +46,12 @@ target_compile_definitions(RLGymPPO_CPP PRIVATE -DWITHIN_RLGPC)
 
 target_include_directories(${PROJECT_NAME}
 		PUBLIC
-		$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
-		$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/libsrc>
+		$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+		$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/libsrc>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
 		$<INSTALL_INTERFACE:include>
         PRIVATE
-        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/private>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/private>
 )
 
 # Include libtorch
