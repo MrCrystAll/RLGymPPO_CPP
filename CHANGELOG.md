@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2025-06-25
+
+### Added
+
+- RLGymSim\_CPP v1.0.7 (dynamic RocketSim)
+
 ## [1.0.2] - 2025-06-24
 
 ### Added
