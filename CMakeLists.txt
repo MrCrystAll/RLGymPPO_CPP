@@ -55,7 +55,7 @@ target_include_directories(${PROJECT_NAME}
 )
 
 # Include libtorch
-target_link_libraries(RLGymPPO_CPP PRIVATE "${TORCH_LIBRARIES}" RLGymSim_CPP::RLGymSim_CPP)
+target_link_libraries(RLGymPPO_CPP PRIVATE "${TORCH_LIBRARIES}" ${RLGymSim_CPP_LIBRARIES} ${RocketSim_LIBRARIES})
 
 if (TORCH_CUDA_LIBRARIES)
 	message("Enabling CUDA support...")
