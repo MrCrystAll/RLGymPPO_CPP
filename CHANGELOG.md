@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.5] - 2025-06-25
+
+### Added
+
+- [RLGymSim\_CPP](https://github.com/MrCrystAll/RLGymSim_CPP/releases/tag/v1.0.9) v1.0.9
+
+
 ## [1.0.4] - 2025-06-25
 
 ### Added
