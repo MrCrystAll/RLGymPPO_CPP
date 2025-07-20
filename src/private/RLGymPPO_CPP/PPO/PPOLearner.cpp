@@ -64,6 +64,18 @@ RLGPC::PPOLearner::PPOLearner(int obsSpaceSize, int actSpaceSize, PPOLearnerConf
 	}
 }
 
+// Structure to hold minibatch computation results
+struct MinibatchResult {
+	torch::Tensor policyLoss;
+	torch::Tensor valueLoss;
+	float entropy;
+	float kl;
+	float ratio;
+	float clipFraction;
+	bool hasPolicy;
+	bool hasCritic;
+};
+
 void RLGPC::PPOLearner::Learn(ExperienceBuffer* expBuffer, Report& report) {
 
 	int
@@ -100,143 +112,245 @@ void RLGPC::PPOLearner::Learn(ExperienceBuffer* expBuffer, Report& report) {
 			policyOptimizer->zero_grad();
 			valueOptimizer->zero_grad();
 
-			// https://stackoverflow.com/questions/30297465/wait-for-all-threads-in-c
-			std::mutex threadLockMutex;
-			std::mutex threadUpdateMutex;
-			std::condition_variable threadCV;
-			std::atomic<int> threadCounter = 0;
+			// Accumulate losses from all minibatches
+			torch::Tensor totalPolicyLoss;
+			torch::Tensor totalValueLoss;
+			bool hasAnyPolicyLoss = false;
+			bool hasAnyValueLoss = false;
 
-			auto fnRunMinibatch = [&](int start, int stop) {
+			// Determine effective minibatch size - use consistent sizing for both CPU and GPU
+			int effectiveMinibatchSize = config.miniBatchSize;
+			if (this->device.is_cpu() && this->minibatchThreadPool) {
+				// For multithreading, ensure we can evenly divide the work
+				int numThreads = this->minibatchThreadPool->threads.size();
+				effectiveMinibatchSize = config.batchSize / numThreads;
+				effectiveMinibatchSize = RS_MAX(effectiveMinibatchSize, 1); // Ensure at least 1
+			}
 
-				float batchSizeRatio = (stop - start) / (float)config.batchSize;
-
-				// Send everything to the device and enforce correct shapes
-				auto acts = batchActs.slice(0, start, stop).to(device, true, true);
-				auto obs = batchObs.slice(0, start, stop).to(device, true, true);
-				
-				auto advantages = batchAdvantages.slice(0, start, stop).to(device, true, true);
-				auto oldProbs = batchOldProbs.slice(0, start, stop).to(device, true, true);
-				auto targetValues = batchTargetValues.slice(0, start, stop).to(device, true, true);
-
-				Timer timer = {};
-				auto vals = valueNet->Forward(obs); // 11%
-				threadUpdateMutex.lock();
-				report.Accum("PPO Value Estimate Time", timer.Elapsed());
-				threadUpdateMutex.unlock();
-
-				timer.Reset();
-				torch::Tensor logProbs, entropy, ratio, clipped, policyLoss, ppoLoss;
-				if (trainPolicy) {
-					// Get policy log probs & entropy
-					DiscretePolicy::BackpropResult bpResult = policy->GetBackpropData(obs, acts); // 13%
-
-					logProbs = bpResult.actionLogProbs;
-					entropy = bpResult.entropy;
-
-					logProbs = logProbs.view_as(oldProbs);
-					threadUpdateMutex.lock();
-					report.Accum("PPO Backprop Data Time", timer.Elapsed());
-					threadUpdateMutex.unlock();
-
-					// Compute PPO loss
-					ratio = exp(logProbs - oldProbs);
-					threadUpdateMutex.lock();
-					meanRatio += ratio.mean().detach().cpu().item<float>();
-					threadUpdateMutex.unlock();
-					clipped = clamp(
-						ratio, 1 - config.clipRange, 1 + config.clipRange
-					);
-
-					// Compute policy loss
-					policyLoss = -min(
-						ratio * advantages, clipped * advantages
-					).mean();
-					ppoLoss = (policyLoss - entropy * config.entCoef) * batchSizeRatio;
-				}
-
-				torch::Tensor valueLoss;
-				if (trainCritic) {
-					// Compute value loss
-					vals = vals.view_as(targetValues);
-					valueLoss = valueLossFn(vals, targetValues) * batchSizeRatio;
-				}
-
-				float kl;
-				if (trainPolicy) {
-					// Compute KL divergence & clip fraction using SB3 method for reporting
-					float clipFraction;
-					{
-						RG_NOGRAD;
-
-						auto logRatio = logProbs - oldProbs;
-						auto klTensor = (exp(logRatio) - 1) - logRatio;
-						kl = klTensor.mean().detach().cpu().item<float>();
-
-						clipFraction = mean((abs(ratio - 1) > config.clipRange).to(kFloat)).cpu().item<float>();
-						threadUpdateMutex.lock();
-						clipFractions.push_back(clipFraction);
-						threadUpdateMutex.unlock();
-					}
-				}
-
-				//timer.Reset();
-				// NOTE: These gradient calls are a substantial portion of learn time
-				//	From my testing, they are around 61% of learn time
-				//	Results will probably vary heavily depending on model size and GPU strength
-				if (trainPolicy)
-					ppoLoss.backward(); // 29%
-				if (trainCritic)
-					valueLoss.backward(); // 24%
-
-				threadUpdateMutex.lock();
-				{
-					report.Accum("PPO Gradient Time", timer.Elapsed());
-
-					if (trainCritic)
-						meanValLoss += valueLoss.cpu().detach().item<float>();
-					if (trainPolicy) {
-						meanDivergence += kl;
-						meanEntropy += entropy.cpu().detach().item<float>();
-					}
-					numMinibatchIterations += 1;
-				}
-				threadUpdateMutex.unlock();
-
-				std::lock_guard<std::mutex> lk(threadLockMutex);
-				threadCounter--;
-				threadCV.notify_all();
-			};
-
-			if (this->device.is_cpu()) {
-
+			// Process minibatches
+			if (this->device.is_cpu() && this->minibatchThreadPool) {
+				// Multithreaded processing for CPU
 				if (!this->minibatchThreadPool) {
 					int numThreads = std::thread::hardware_concurrency();
 					numThreads += numThreads / 2; // Seems to be slightly faster
 					this->minibatchThreadPool = new ThreadPool(numThreads);
 				}
 
-				// Use multithreaded PPO learn
-				int realMinibatchSize = config.batchSize / this->minibatchThreadPool->threads.size();
+				// Thread-safe storage for results
+				std::mutex resultsMutex;
+				std::vector<MinibatchResult> results;
 
-				for (int mbs = 0; mbs < config.batchSize; mbs += realMinibatchSize) {
+				auto fnRunMinibatch = [&](int start, int stop) {
+					MinibatchResult result = {};
+					result.hasPolicy = false;
+					result.hasCritic = false;
+
+					float batchSizeRatio = (stop - start) / (float)config.batchSize;
+
+					// Send everything to the device and enforce correct shapes
+					auto acts = batchActs.slice(0, start, stop).to(device, true, true);
+					auto obs = batchObs.slice(0, start, stop).to(device, true, true);
+					
+					auto advantages = batchAdvantages.slice(0, start, stop).to(device, true, true);
+					auto oldProbs = batchOldProbs.slice(0, start, stop).to(device, true, true);
+					auto targetValues = batchTargetValues.slice(0, start, stop).to(device, true, true);
+
+					Timer timer = {};
+					auto vals = valueNet->Forward(obs); // 11%
+					std::lock_guard<std::mutex> lock(resultsMutex);
+					report.Accum("PPO Value Estimate Time", timer.Elapsed());
+					timer.Reset();
+
+					torch::Tensor logProbs, entropy, ratio, clipped, policyLoss, ppoLoss;
+					if (trainPolicy) {
+						// Get policy log probs & entropy
+						DiscretePolicy::BackpropResult bpResult = policy->GetBackpropData(obs, acts); // 13%
+
+						logProbs = bpResult.actionLogProbs;
+						entropy = bpResult.entropy;
+
+						logProbs = logProbs.view_as(oldProbs);
+						report.Accum("PPO Backprop Data Time", timer.Elapsed());
+
+						// Compute PPO loss
+						ratio = exp(logProbs - oldProbs);
+						result.ratio = ratio.mean().detach().cpu().item<float>();
+
+						clipped = clamp(
+							ratio, 1 - config.clipRange, 1 + config.clipRange
+						);
+
+						// Compute policy loss
+						policyLoss = -min(
+							ratio * advantages, clipped * advantages
+						).mean();
+						ppoLoss = (policyLoss - entropy * config.entCoef) * batchSizeRatio;
+						
+						result.policyLoss = ppoLoss;
+						result.hasPolicy = true;
+						result.entropy = entropy.cpu().detach().item<float>();
+
+						// Compute KL divergence & clip fraction using SB3 method for reporting
+						{
+							RG_NOGRAD;
+							auto logRatio = logProbs - oldProbs;
+							auto klTensor = (exp(logRatio) - 1) - logRatio;
+							result.kl = klTensor.mean().detach().cpu().item<float>();
+							result.clipFraction = mean((abs(ratio - 1) > config.clipRange).to(kFloat)).cpu().item<float>();
+						}
+					}
+
+					if (trainCritic) {
+						// Compute value loss
+						vals = vals.view_as(targetValues);
+						torch::Tensor valueLoss = valueLossFn(vals, targetValues) * batchSizeRatio;
+						result.valueLoss = valueLoss;
+						result.hasCritic = true;
+					}
+
+					// Store results thread-safely
+					{
+						std::lock_guard<std::mutex> lock(resultsMutex);
+						results.push_back(result);
+						report.Accum("PPO Gradient Time", timer.Elapsed());
+						numMinibatchIterations += 1;
+					}
+				};
+
+				// Launch threads
+				for (int mbs = 0; mbs < config.batchSize; mbs += effectiveMinibatchSize) {
 					int start = mbs;
-					int stop = start + realMinibatchSize;
-					stop = RS_MIN(stop, config.batchSize);
-
+					int stop = RS_MIN(start + effectiveMinibatchSize, config.batchSize);
 					this->minibatchThreadPool->StartJob(std::bind(fnRunMinibatch, start, stop));
 				}
 
+				// Wait for all threads to complete
 				while (this->minibatchThreadPool->GetNumRunningJobs() > 0)
 					RG_SLEEP(1);
 
+				// Accumulate results from all threads
+				for (const auto& result : results) {
+					if (result.hasPolicy) {
+						if (!hasAnyPolicyLoss) {
+							totalPolicyLoss = result.policyLoss;
+							hasAnyPolicyLoss = true;
+						} else {
+							totalPolicyLoss += result.policyLoss;
+						}
+						meanEntropy += result.entropy;
+						meanDivergence += result.kl;
+						meanRatio += result.ratio;
+						clipFractions.push_back(result.clipFraction);
+					}
+					if (result.hasCritic) {
+						if (!hasAnyValueLoss) {
+							totalValueLoss = result.valueLoss;
+							hasAnyValueLoss = true;
+						} else {
+							totalValueLoss += result.valueLoss;
+						}
+						meanValLoss += result.valueLoss.cpu().detach().item<float>();
+					}
+				}
+
 			} else {
-				for (int mbs = 0; mbs < config.batchSize; mbs += config.miniBatchSize) {
+				// Single-threaded processing for GPU or when threading is disabled
+				for (int mbs = 0; mbs < config.batchSize; mbs += effectiveMinibatchSize) {
 					int start = mbs;
-					int stop = start + config.miniBatchSize;
-					fnRunMinibatch(start, stop);
+					int stop = RS_MIN(start + effectiveMinibatchSize, config.batchSize);
+
+					float batchSizeRatio = (stop - start) / (float)config.batchSize;
+
+					// Send everything to the device and enforce correct shapes
+					auto acts = batchActs.slice(0, start, stop).to(device, true, true);
+					auto obs = batchObs.slice(0, start, stop).to(device, true, true);
+					
+					auto advantages = batchAdvantages.slice(0, start, stop).to(device, true, true);
+					auto oldProbs = batchOldProbs.slice(0, start, stop).to(device, true, true);
+					auto targetValues = batchTargetValues.slice(0, start, stop).to(device, true, true);
+
+					Timer timer = {};
+					auto vals = valueNet->Forward(obs);
+					report.Accum("PPO Value Estimate Time", timer.Elapsed());
+
+					timer.Reset();
+					torch::Tensor logProbs, entropy, ratio, clipped, policyLoss, ppoLoss;
+					if (trainPolicy) {
+						DiscretePolicy::BackpropResult bpResult = policy->GetBackpropData(obs, acts);
+
+						logProbs = bpResult.actionLogProbs;
+						entropy = bpResult.entropy;
+
+						logProbs = logProbs.view_as(oldProbs);
+						report.Accum("PPO Backprop Data Time", timer.Elapsed());
+
+						// Compute PPO loss
+						ratio = exp(logProbs - oldProbs);
+						meanRatio += ratio.mean().detach().cpu().item<float>();
+						clipped = clamp(
+							ratio, 1 - config.clipRange, 1 + config.clipRange
+						);
+
+						// Compute policy loss
+						policyLoss = -min(
+							ratio * advantages, clipped * advantages
+						).mean();
+						ppoLoss = (policyLoss - entropy * config.entCoef) * batchSizeRatio;
+
+						// Accumulate policy loss
+						if (!hasAnyPolicyLoss) {
+							totalPolicyLoss = ppoLoss;
+							hasAnyPolicyLoss = true;
+						} else {
+							totalPolicyLoss += ppoLoss;
+						}
+
+						// Compute KL divergence & clip fraction
+						{
+							RG_NOGRAD;
+							auto logRatio = logProbs - oldProbs;
+							auto klTensor = (exp(logRatio) - 1) - logRatio;
+							float kl = klTensor.mean().detach().cpu().item<float>();
+							meanDivergence += kl;
+
+							float clipFraction = mean((abs(ratio - 1) > config.clipRange).to(kFloat)).cpu().item<float>();
+							clipFractions.push_back(clipFraction);
+						}
+
+						meanEntropy += entropy.cpu().detach().item<float>();
+					}
+
+					torch::Tensor valueLoss;
+					if (trainCritic) {
+						// Compute value loss
+						vals = vals.view_as(targetValues);
+						valueLoss = valueLossFn(vals, targetValues) * batchSizeRatio;
+						
+						// Accumulate value loss
+						if (!hasAnyValueLoss) {
+							totalValueLoss = valueLoss;
+							hasAnyValueLoss = true;
+						} else {
+							totalValueLoss += valueLoss;
+						}
+
+						meanValLoss += valueLoss.cpu().detach().item<float>();
+					}
+
+					report.Accum("PPO Gradient Time", timer.Elapsed());
+					numMinibatchIterations += 1;
 				}
 			}
 
+			// Now perform backward pass once per batch with accumulated losses
+			Timer gradTimer = {};
+			if (hasAnyPolicyLoss)
+				totalPolicyLoss.backward();
+			if (hasAnyValueLoss)
+				totalValueLoss.backward();
+			report.Accum("PPO Total Backward Time", gradTimer.Elapsed());
+
+			// Gradient noise measurement
 			if (config.measureGradientNoise) {
 				if (trainPolicy)
 					noiseTrackerPolicy->Update(policy->seq);
@@ -244,20 +358,24 @@ void RLGPC::PPOLearner::Learn(ExperienceBuffer* expBuffer, Report& report) {
 					noiseTrackerValueNet->Update(valueNet->seq);
 			}
 
+			// Gradient clipping
 			if (trainPolicy)
 				nn::utils::clip_grad_norm_(policy->parameters(), 0.5f);
 			if (trainCritic)
 				nn::utils::clip_grad_norm_(valueNet->parameters(), 0.5f);
 			
+			// Optimizer steps
 			if (trainPolicy)
 				policyOptimizer->step();
 			if (trainCritic)
 				valueOptimizer->step();
 
+			// Update half precision models if they exist
 			if (policyHalf)
 				_CopyModelParamsHalf(policy, policyHalf);
 			if (valueNetHalf)
 				_CopyModelParamsHalf(valueNet, valueNetHalf);
+				
 			numIterations += 1;
 		}
 	}
